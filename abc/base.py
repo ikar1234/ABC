@@ -2,16 +2,31 @@
 Approximate Bayesian Computation.
 """
 from typing import Callable
-from importlib import import_module
 from numpy import random
 
 
 class Sampler:
+    """
+    A basic class used to sample from the prior.
+    The preferred option is to have installed PyMC3.
+    Supported methods are:
+        - Inverse transform
+        - Alias sampling
+        - Rejection sampling
+        - Importance sampling
+        - Annealed importance sampling
+        - MCMC (Metropolis-Hasting, Gibbs sampling)
+        - Slice sampling
 
-    def __init__(self, method):
+    Default is Metropolis-Hastings.
+    """
+    method: str
+    params: dict
+
+    def __init__(self, method="MH", params=None):
         ...
 
-    def sample(self, func):
+    def sample(self, func, size=1):
         ...
 
 
@@ -40,6 +55,11 @@ class Distribution:
                 return f(size=size, **self.params)
             except AttributeError:
                 raise ValueError('Distribution not found.')
+        elif self.func is not None:
+            s = Sampler(method=method, params=self.params)
+            return s.sample(self.func, size=size)
+        else:
+            raise ValueError('Function to sample from was not provided.')
 
 
 # TODO: Allow for hierarchical distributions by specifying a JSON format. Example
