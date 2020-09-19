@@ -1,10 +1,13 @@
 """
 Approximate Bayesian Computation.
 """
+import numpy as np
+from math import ceil
 from typing import Callable
 from numpy import random
-from ABC.utils.distances import Distance
+from ABC.distances import Distance
 from warnings import warn
+import json
 
 
 class Sampler:
@@ -123,6 +126,14 @@ class Distribution:
         else:
             raise ValueError('Function to sample from was not provided.')
 
+    def __call__(self, p):
+        """
+        Evaluate the distribution at a point.
+        :param p: point in the domain of the distribution
+        :return:
+        """
+        return self.func(p)
+
 
 class Hierarchical:
     """
@@ -133,12 +144,20 @@ class Hierarchical:
     Example: A Poisson-Gamma mixture, which is a Poisson distribution with parameter lambda
     being gamma-distributed with shape 1 and scale 2 looks as follows:
     h = {'poisson': {'lambda': {'gamma': {'shape':1, 'scale': 2} }}}
+    Input can be either dict or a JSON object.
     """
-    schema: dict
+    func: Callable
 
-    def __init__(self, schema):
+    def __init__(self, schema=None, schema_json=None):
+        if schema_json is not None:
+            # TODO: test
+            schema = json.dumps(schema_json)
+
         while schema:
             ...
+
+    def sample(self):
+        ...
 
 
 class ABCSampler:
@@ -151,9 +170,10 @@ class ABCSampler:
         """
         self.prior = prior
 
-    def fit(self, model: dict, data, theta: str, size=100, method='mmd', eps=0.01):
+    def _rejection_sampler(self, model: dict, data, theta: str, size=100, dist_method='mmd', eps=0.01):
         """
-
+        The simplest ABC algorithm - Rejection Sampling. First we sample some values from the prior and
+        only accept those for which the simulated distribution are sufficiently close to the data.
         :param model: parameters of the model. This includes the name or custom function as well as
             the parameters of the function itself.
             Example: {'name': 'normal', 'params': {'loc': 1, 'scale': 2}}
@@ -161,11 +181,11 @@ class ABCSampler:
         :param theta: name of the parameter to be inferred
         :param size: number of samples taken from the prior
         :param eps: threshold for proximity of datasets
-        :param method: distance method for the data
+        :param dist_method: distance method for the data
         :return:
         """
         d = data.shape[0]
-        dist = Distance(method=method)
+        dist = Distance(method=dist_method)
         thetas = self.prior.sample(size=size)
         for t in thetas:
             # add theta to the parameters
@@ -174,3 +194,139 @@ class ABCSampler:
             new_data = l.sample(size=d)
             if dist.compute(data, new_data) < eps:
                 yield t
+
+    def _mcmc_abc(self, model: dict, data, th0, theta: str, q=None, size=100, dist_method='mmd', eps=0.01):
+        """
+        The ABC-MCMC algorithm. We propose a value for the parameter. If the simulated sample is accepted,
+        the next value is sampled with the MH rule, otherwise we keep the old value.
+        :param model: parameters of the model. This includes the name or custom function as well as
+            the parameters of the function itself.
+            Example: {'name': 'normal', 'params': {'loc': 1, 'scale': 2}}
+        :param data: observed data
+        :param th0: initial value for the parameter
+        :param theta: name of the parameter to be inferred
+        :param q: sampling distribution for the parameter. default is standard normal
+        :param size: number of samples taken from the prior
+        :param dist_method: distance method for the data
+        :param eps: threshold for proximity of datasets
+        """
+        if q is None:
+            q = random.normal(loc=0, scale=1)
+
+        for i in range(size):
+            if type(q).__name__ == 'Distribution':
+                # TODO: parameters
+                th = q.sample(size=1)
+            else:
+                try:
+                    # TODO: parameters
+                    th = q(th0, size=1)
+                except (ValueError, TypeError):
+                    raise ValueError("Please provide a valid sampling distribution.")
+            model.setdefault(theta, th)
+            l = Distribution.from_flat_dict(model)
+            # TODO
+            new_data = l.sample(size=100)
+            dist = Distance(method=dist_method)
+
+            if dist.compute(data, new_data) < eps:
+                # allow for a small numerical error
+                if self.prior(th0) < 1e-15:
+                    ...
+                # TODO: q
+                alpha = min(1, self.prior(th) / self.prior(th0))
+                if alpha > random.uniform(low=0, high=1):
+                    # accept new point
+                    # TODO: multiple dimensions and call by reference
+                    th0 = th
+                    yield th0
+
+    def _cma_abc(self, model: dict, data, th0: np.ndarray, theta: str, size=100, ratio=0.1, dist_method='mmd',
+                 eps=0.01):
+        """
+        A CMA-version of the rejection ABC algorithm. If a value is accepted, then we sample new values which are
+        close to the accepted one, and keep the best ones. This is similar to the CMA algorithm.
+        The main distinction is the way we search for new values, namely by keeping the best ones and fitting a normal
+        distribution to them.
+        Warning! There are probably no theoretical guarantees for the convergence of the method.
+        Since CMA is an optimization algorithm, I would assume that this, in a way, aims at maximizing the posterior.
+        :param ratio: ratio of the sampled parameter which will be kept for the next iteration
+        :return:
+        """
+        if ratio <= 0 or ratio > 1:
+            raise ValueError('Ratio must be positive and smaller than 1.')
+
+        n = th0.shape[0]
+        loc = th0
+        scale = np.eye(n)
+        for i in range(size):
+            thetas = random.normal(loc=loc, scale=scale, size=100)
+            # array of distances
+            dists = []
+            for t in thetas:
+                # add theta to the parameters
+                model.setdefault(theta, t)
+                l = Distribution.from_flat_dict(model)
+                new_data = l.sample(size=100)
+                dist = Distance(method=dist_method)
+                dists.append(dist.compute(data, new_data))
+                if dist.compute(data, new_data) < eps:
+                    yield t
+
+            # sort parameters by distance, where better parameters lead to shorter distance
+            # TODO: numpy array?
+            thetas = [x for y, x in sorted(zip(dists, thetas))]
+            # keep only the best parameters
+            best_params = ceil(100 * ratio)
+            thetas = thetas[:best_params]
+            # reestimate the parameters of the sampling distribution
+            loc = np.mean(thetas)
+            scale = np.cov(thetas)
+
+    def _smc_abc(self, model, theta: str, N: int, data, T: int, eps=0.01, dist_method="mmd"):
+        """
+        An ABC-SMC algorithm. See https://arxiv.org/pdf/1608.07606.pdf, Algorithm 1 for reference
+        :param model:
+        :param theta:
+        :param N:
+        :param data:
+        :param T:
+        :param eps:
+        :param dist_method:
+        :return:
+        """
+        theta_vec = np.zeros((N, T))
+        w = np.zeros((N, T))
+        sigmas = np.zeros((1, T))
+        dist = Distance(method=dist_method)
+
+        if N <= 0:
+            raise ValueError("Need at least 1 iteration.")
+        new_data = None
+        th = 0
+
+        # iteration t = 0
+        for i in range(N):
+            while new_data is not None or dist.compute(data, new_data) > eps:
+                th = self.prior.sample(size=1)
+                model.setdefault(theta, th)
+                l = Distribution.from_flat_dict(model)
+                new_data = l.sample(size=100)
+            theta_vec[i, 0] = th
+            w[i, 0] = 1 / N
+        sigmas[0] = 2 * np.cov(theta_vec[:, 0])
+
+        # iteration t > 0
+        for t in range(T):
+            for i in range(N):
+                while dist.compute(data, new_data) > eps:
+                    th = np.random.choice(a=theta_vec[:, t - 1], size=1, p=w[:, t - 1])
+                    # pertub theta* by adding gaussian noise
+                    th += np.random.multivariate_normal(mean=np.zeros((1, N)), cov=sigmas[t - 1])
+                    model.setdefault(theta, th)
+                    l = Distribution.from_flat_dict(model)
+                    new_data = l.sample(size=100)
+                theta_vec[i, t] = th
+                kernel = ...
+                w[i, t] = self.prior(th) / (w[:, t - 1] @ kernel)
+            sigmas[t] = ...

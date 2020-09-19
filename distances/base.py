@@ -3,6 +3,18 @@ Distance functions for datasets.
 Does not include distances that are used in hypothesis tests and are already implemented
 in some packages.
 """
+import numpy as np
+
+
+def mean_diff(d1, d2):
+    """
+    Difference of means. Useful for high-dimensional data, but it can underestimate the true distance since
+    it does not differentiate distributions with different higher moments.
+    :param d1: first dataset
+    :param d2: second dataset
+    :return:
+    """
+    return np.abs(np.mean(d1) - np.mean(d2))
 
 
 def mmd(d1, d2):
@@ -11,7 +23,6 @@ def mmd(d1, d2):
     :return:
     """
     # TODO
-    return sum([x in d2 for x in d1]) + sum([x in d1 for x in d2])
 
 
 def kmmd(d1, d2, k, alpha: float):
@@ -41,3 +52,5 @@ class Distance:
     def compute(self, data1, data2):
         if self.method == 'mmd':
             return mmd(data1, data2)
+        elif self.method == 'mean_diff':
+            return mean_diff(data1, data2)

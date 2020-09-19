@@ -1,4 +1,5 @@
 import unittest
+import numpy as np
 from numpy.random import normal
 
 from ABC.abc.base import Distribution, ABCSampler
@@ -36,8 +37,9 @@ class MyTestCase(unittest.TestCase):
         # we know that the data is normal and are trying to infer the mean
         lkh_model = {'name': 'normal', 'scale': 1}
         abc = ABCSampler(prior=prior)
-        thetas = abc.fit(data=data, theta='loc', model=lkh_model)
+        thetas = abc._rejection_sampler(data=data, theta='loc', model=lkh_model, dist_method='mean_diff', eps=2)
         print([x for x in thetas])
+        print(np.mean(list(thetas)))
 
 
 if __name__ == '__main__':
