@@ -4,6 +4,8 @@ Does not include distances that are used in hypothesis tests and are already imp
 in some packages.
 """
 import numpy as np
+from importlib.util import find_spec
+
 
 def mean_diff(d1, d2):
     """
@@ -66,4 +68,20 @@ class TSDistance(Distance):
     method: str
 
     def compute(self, data1, data2):
-        ...
+        if find_spec('tslearn'):
+            return self._compute_tslearn(data1, data2)
+        else:
+            return self._compute_native(data1, data2)
+
+    def _compute_tslearn(self, data1, data2):
+        from tslearn.utils import to_time_series
+        from tslearn.metrics import dtw
+        ts1 = to_time_series(data1)
+        ts2 = to_time_series(data2)
+
+        if self.method == 'dtw':
+            return dtw(ts1, ts2)
+        return 3.14
+
+    def _compute_native(self, data1, data2):
+        return 2.71

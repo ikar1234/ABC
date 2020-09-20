@@ -2,7 +2,8 @@ language: python
 python:
   - "3.6"
   - "3.7"
-  - "3.8"
+# there are some package problems with 3.8
+#  - "3.8"
 install:
   - pip install -r requirements.txt
 script: bash test.sh
