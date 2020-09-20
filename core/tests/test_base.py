@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 from numpy.random import normal
 
-from ABC.abc.base import Distribution, ABCSampler
+from ABC.core.base import Distribution, ABCSampler
 
 
 class MyTestCase(unittest.TestCase):
