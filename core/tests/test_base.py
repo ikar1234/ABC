@@ -1,7 +1,9 @@
 import unittest
 import numpy as np
 from numpy.random import normal
+import sys
 
+print(sys.path)
 from ABC.core.base import Distribution, ABCSampler
 
 

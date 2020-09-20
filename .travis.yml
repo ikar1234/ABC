@@ -10,4 +10,4 @@ script: bash test.sh
 before_install:
   - "pip install -U pip"
   - "export PYTHONPATH=$PYTHONPATH:$(pwd)"
-  - "python setup.py install"
+#  - "python setup.py install"
