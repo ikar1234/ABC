@@ -83,7 +83,7 @@ class Distribution:
             if self.func is not None:
                 warn(message='Both name and a custom function were provided. I wont use the custom function.')
             try:
-                f = eval(f'random.{self.name}')
+                eval(f'random.{self.name}')
             except AttributeError:
                 raise ValueError('Distribution not found.')
         elif self.func is None:
