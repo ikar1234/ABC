@@ -330,3 +330,11 @@ class ABCSampler:
                 kernel = ...
                 w[i, t] = self.prior(th) / (w[:, t - 1] @ kernel)
             sigmas[t] = ...
+
+    def _hmm_abc(self):
+        """
+        An ABC algorithm for HMMs. A set of unobserved parameters are sampled to produce a sequence. This sequence
+        is compared to the observed data.
+        :return:
+        """
+        ...

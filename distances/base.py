@@ -5,7 +5,6 @@ in some packages.
 """
 import numpy as np
 
-
 def mean_diff(d1, d2):
     """
     Difference of means. Useful for high-dimensional data, but it can underestimate the true distance since
@@ -54,3 +53,17 @@ class Distance:
             return mmd(data1, data2)
         elif self.method == 'mean_diff':
             return mean_diff(data1, data2)
+
+
+class TSDistance(Distance):
+    """
+    Distance for time-series observations.
+    Includes the following methods:
+    - Hamming distance
+    - Edit distance
+    - Dynamic Time Warping (DTW)
+    """
+    method: str
+
+    def compute(self, data1, data2):
+        ...

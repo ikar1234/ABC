@@ -5,3 +5,15 @@ Approximate Bayesian Computation in Python
 
 
 * Have no idea where this is gonna go
+
+<b> Dependencies</b>
+
+- numpy
+- math
+
+
+
+<i> Optional </i>
+
+- json - if you want to import a model from a file
+- tslearn - A faster implementation of Time Series distances (TSDistance)
