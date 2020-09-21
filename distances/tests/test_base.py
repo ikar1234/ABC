@@ -12,7 +12,7 @@ class MyTestCase(unittest.TestCase):
         data1 = encode_nucl("ACGACGACAACTAC")
         data2 = encode_nucl("ACTACGTCAGATAG")
 
-        d = TSDistance(method='dtw')
+        d = TSDistance(method='norm_hamming')
         print(d.compute(data1, data2))
 
 

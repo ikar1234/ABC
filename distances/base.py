@@ -3,70 +3,12 @@ Distance functions for datasets.
 Does not include distances that are used in hypothesis tests and are already implemented
 in some packages.
 """
-from typing import Union
 
 import numpy as np
 from importlib.util import find_spec
-
-
-def mean_diff(d1, d2):
-    """
-    Difference of means. Useful for high-dimensional data, but it can underestimate the true distance since
-    it does not differentiate distributions with different higher moments.
-    :param d1: first dataset
-    :param d2: second dataset
-    :return:
-    """
-    return np.abs(np.mean(d1) - np.mean(d2))
-
-
-def mmd(d1, d2):
-    """
-    Maximum Mean Discrepancy.
-    :return:
-    """
-    # TODO
-
-
-def kmmd(d1, d2, k, alpha: float):
-    """
-    Kernel MMD.
-    :param d1: first dataset
-    :param d2: second dataset
-    :param k: positive definite kernel
-    :param alpha: level of test
-
-    See doi:10.1093/bioinformatics/btl242 for reference.
-    :return:
-    """
-    if alpha < 0 or alpha > 1:
-        raise ValueError('Parameter alpha must lie between 0 and 1.')
-    if d1.shape != d2.shape:
-        raise ValueError("Input datasets are not of equal shape.")
-
+from .dist import mean_diff, mmd, kmmd, hamming, cumsum_ts
 
 distances = [mean_diff, mmd, kmmd]
-
-
-def hamming(d1, d2):
-    l = zip(d1, d2)
-    return sum([x[0] == x[1] for x in l])
-
-
-def cumsum_ts(d1, d2, p: Union[int, str, None] = None):
-    """
-    Cumulative distance for time series. First, the time series sequences are cumulated and the resulting
-    sequences are compared using the standard Euclidean metric.
-    :param d1: first dataset
-    :param d2: second dataset
-    :param p: the metric parameter
-    :return:
-    """
-    ts1 = np.cumsum(d1)
-    ts2 = np.cumsum(d2)
-
-    return np.linalg.norm(ts1, ts2, p)
-
 
 ts_distances = [hamming, cumsum_ts]
 
@@ -98,8 +40,8 @@ class TSDistance(Distance):
     """
     method: str
 
-    def compute(self, data1, data2, **params):
-        if find_spec('tslearn'):
+    def compute(self, data1, data2, tslearn_dist=False, **params):
+        if tslearn_dist and find_spec('tslearn'):
             return self._compute_tslearn(data1, data2, **params)
         else:
             return self._compute_native(data1, data2, **params)
